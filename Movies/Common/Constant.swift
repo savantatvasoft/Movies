@@ -1,8 +1,21 @@
-//
-//  Constant.swift
-//  Movies
-//
-//  Created by MACM72 on 03/12/25.
-//
 
-import Foundation
+import UIKit
+
+enum Screen {
+    
+    // Safe replacement for UIScreen.main
+    private static var currentScreen: UIScreen? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .screen
+    }
+    
+    static var width: CGFloat {
+        currentScreen?.bounds.width ?? 0
+    }
+    
+    static var height: CGFloat {
+        currentScreen?.bounds.height ?? 0
+    }
+}

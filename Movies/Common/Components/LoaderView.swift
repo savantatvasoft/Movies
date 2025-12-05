@@ -1,20 +1,44 @@
-//
-//  LoaderView.swift
-//  Movies
-//
-//  Created by MACM72 on 04/12/25.
-//
-
 import UIKit
 
-class LoaderView: UIView {
+class LoadingView: UIView {
 
-    /*
-    // Only override draw() if you perform custom drawing.
-    // An empty implementation adversely affects performance during animation.
-    override func draw(_ rect: CGRect) {
-        // Drawing code
+    private let indicator: UIActivityIndicatorView = {
+        let v = UIActivityIndicatorView(style: .large)
+        v.color = .white
+        v.hidesWhenStopped = true
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
     }
-    */
 
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupUI()
+    }
+
+    private func setupUI() {
+        backgroundColor = .clear
+        isHidden = true  // ← ADD THIS: Hide by default
+        
+        addSubview(indicator)
+
+        NSLayoutConstraint.activate([
+            indicator.centerXAnchor.constraint(equalTo: centerXAnchor),
+            indicator.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+
+    func start() {
+        isHidden = false
+        indicator.startAnimating()
+    }
+
+    func stop() {
+        indicator.stopAnimating()
+        isHidden = true
+    }
 }
