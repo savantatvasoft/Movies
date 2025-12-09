@@ -6,12 +6,14 @@
 //
 
 import UIKit
+import Combine
 
 class MoviesVC: UIViewController {
     
     let vm = MoviesVM()
     private let loader = LoadingView()
     private let header = Header(title: "Movies")
+    private var cancellables = Set<AnyCancellable>()
     
     
     private lazy var tableView:UITableView = {
@@ -46,7 +48,7 @@ extension MoviesVC {
     
     private func setUpView(){
         view.backgroundColor = UIColor(named: "Background")
-    
+        
         view.addSubview(header)
         view.addSubview(tableView)
         view.addSubview(loader)
@@ -73,38 +75,51 @@ extension MoviesVC {
             loader.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             loader.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             loader.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        
+            
         ])
     }
     
     private func bindViewModel() {
-        vm.onInitialLoadingChanged = { [weak self] isLoading in
-            guard let self = self else { return }
-            if isLoading {
-                self.loader.start()
-                self.tableView.isHidden = true
-            } else {
-                self.loader.stop()
-                self.tableView.isHidden = false
-                self.tableView.reloadData()
-            }
-        }
         
-        vm.onPaginationLoadingChanged = { [weak self] isLoading in
-                    guard let self = self else { return }
-                    
-                    if isLoading {
-                        self.tableView.tableFooterView = self.footerLoader
-                        self.footerLoader.start()
-                    } else {
-                        self.footerLoader.stop()
-                        self.tableView.tableFooterView = nil
-                        self.tableView.reloadData()
-                    }
-        }
-            
+        // Movies list change
+        vm.$movies
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
+        
+        //.store(in:) is triggered immediately when you create the subscription.
+        //Keep this subscription alive until this VC is destroyed.Without .store(in:)
+//        Your subscription will die immediately..store runs only once (when creating subscription).
+        
+        // Initial Loader
+        vm.$isInitialLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isLoading in
+                guard let self else { return }
+                self.tableView.isHidden = isLoading
+                isLoading ? self.loader.start() : self.loader.stop()
+            }
+            .store(in: &cancellables)
+        
+        // Pagination Loader
+        vm.$isPaginationLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isLoading in
+                guard let self else { return }
+                if isLoading {
+                    self.footerLoader.start()
+                    self.tableView.tableFooterView = self.footerLoader
+                } else {
+                    self.footerLoader.stop()
+                    self.tableView.tableFooterView = nil
+                }
+            }
+            .store(in: &cancellables)
     }
 }
+
 
 
 extension MoviesVC : UITableViewDataSource , UITableViewDelegate {

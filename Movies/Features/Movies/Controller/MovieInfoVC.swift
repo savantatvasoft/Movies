@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Combine
 import SwiftUI
 
 final class MovieInfoVC: UIViewController {
@@ -17,7 +18,9 @@ final class MovieInfoVC: UIViewController {
     private let contentView = MovieInfoContentView()
     
     private let header: Header
+    private var cancellables = Set<AnyCancellable>()
 
+    // MARK: - Init
     init(movieId: Int?, title: String) {
         self.header = Header(title: title)
         self.movieId = movieId
@@ -28,22 +31,20 @@ final class MovieInfoVC: UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        header.showBackButton = true
         
+        header.showBackButton = true
         setUpView()
         setConstraints()
         bindViewModel()
         
         Task {
-           await self.vm.loadMovieDetail(movieId: movieId!)
+            await vm.loadMovieDetail(id: movieId!)
         }
-        
     }
 }
-
-
 
 extension MovieInfoVC {
     
@@ -52,7 +53,8 @@ extension MovieInfoVC {
         view.addSubview(header)
         view.addSubview(loader)
         view.addSubview(contentView)
-
+        
+        contentView.isHidden = true   // Start hidden until data loads
     }
     
     private func setConstraints() {
@@ -61,20 +63,20 @@ extension MovieInfoVC {
         loader.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
         
-        
         NSLayoutConstraint.activate([
             
-            //header
+            // Header
             header.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             header.topAnchor.constraint(equalTo: view.topAnchor),
             
-            // loader
-            loader.topAnchor.constraint(equalTo: header.bottomAnchor , constant: 0),
+            // Loader
+            loader.topAnchor.constraint(equalTo: header.bottomAnchor),
             loader.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             loader.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             loader.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
+            // Content (movie details)
             contentView.topAnchor.constraint(equalTo: header.bottomAnchor),
             contentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -83,36 +85,49 @@ extension MovieInfoVC {
         ])
     }
     
+    
+    // MARK: - Binding (Combine)
     private func bindViewModel() {
-        vm.onDetailLoadingChanged = { [weak self] isLoading in
-            guard let self = self else { return }
-            if isLoading {
-                self.loader.start()
-                contentView.isHidden = true
-               
-            } else {
-                self.loader.stop()
-                contentView.isHidden = false
+        
+        // Loader binding
+        vm.$isDetailLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isLoading in
+                guard let self else { return }
+                
+                if isLoading {
+                    self.loader.start()
+                    self.contentView.isHidden = true
+                } else {
+                    self.loader.stop()
+                    self.contentView.isHidden = false
+                }
             }
-        }
+            .store(in: &cancellables)
         
-        vm.onMovieLoaded = { [weak self] movie in
-            print("onMovieLoaded")
-            self?.contentView.configure(with: movie)
-        }
         
+        // Movie detail binding
+        vm.$movieDetail
+            .compactMap { $0 }   // Only proceed when data arrives
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] movie in
+                self?.contentView.configure(with: movie)
+            }
+            .store(in: &cancellables)
+        
+        
+        // Back button
         header.backButtonAction = { [weak self] in
-            guard let self = self else { return }
-        
+            guard let self else { return }
             if let nav = self.navigationController {
                 nav.popViewController(animated: true)
             } else {
-                self.dismiss(animated: true)            // ← For modal presentation
+                self.dismiss(animated: true)
             }
         }
-        
     }
 }
+
 
 
 #if DEBUG
