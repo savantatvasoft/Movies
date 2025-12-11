@@ -27,11 +27,36 @@ class MoviesVC: UIViewController {
         return table
     }()
     
+    private let emptyLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "No Movies Found"
+        lbl.textColor = .lightGray
+        lbl.textAlignment = .center
+        lbl.font = .systemFont(ofSize: 18, weight: .medium)
+        lbl.isHidden = true
+        return lbl
+    }()
+
+    
     // Reuse LoadingView for footer
     private lazy var footerLoader: LoadingView = {
         let view = LoadingView(frame: CGRect(x: 0, y: 0, width: self.view.frame.width, height: 60))
         return view
     }()
+    
+    private let searchTextField: UITextField = {
+        let tf = UITextField()
+        tf.placeholder = "Search movies"
+        tf.textColor = .white
+        tf.backgroundColor = .clear
+        tf.layer.cornerRadius = 12
+        tf.layer.borderWidth = 1
+        tf.layer.borderColor = UIColor.systemGray4.cgColor
+        tf.setLeftIcon(UIImage(systemName: "magnifyingglass")!, padding: 12)
+        tf.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        return tf
+    }()
+
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -52,21 +77,30 @@ extension MoviesVC {
         view.addSubview(header)
         view.addSubview(tableView)
         view.addSubview(loader)
+        view.addSubview(searchTextField)
+        view.addSubview(emptyLabel)
         view.bringSubviewToFront(loader)
     }
     
     private func setConstraints() {
         
         header.translatesAutoresizingMaskIntoConstraints = false
+        searchTextField.translatesAutoresizingMaskIntoConstraints = false
         tableView.translatesAutoresizingMaskIntoConstraints = false
         loader.translatesAutoresizingMaskIntoConstraints = false
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
             header.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             header.topAnchor.constraint(equalTo: view.topAnchor),
             
-            tableView.topAnchor.constraint(equalTo: header.bottomAnchor , constant: 10),
+            
+            searchTextField.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 30),
+            searchTextField.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 10),
+            searchTextField.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -10),
+             
+            tableView.topAnchor.constraint(equalTo: searchTextField.bottomAnchor , constant: 10),
             tableView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor,constant: 10 ),
             tableView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor,constant: -10),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -76,6 +110,9 @@ extension MoviesVC {
             loader.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             loader.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
+            emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            
         ])
     }
     
@@ -84,10 +121,20 @@ extension MoviesVC {
         // Movies list change
         vm.$movies
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.tableView.reloadData()
+            .sink { [weak self] movies in
+                guard let self else { return }
+                
+                self.tableView.reloadData()
+                
+                // Logic → hide label when loading, otherwise show only if empty
+                if self.vm.isInitialLoading {
+                    self.emptyLabel.isHidden = true
+                } else {
+                    self.emptyLabel.isHidden = !movies.isEmpty
+                }
             }
             .store(in: &cancellables)
+
         
         //.store(in:) is triggered immediately when you create the subscription.
         //Keep this subscription alive until this VC is destroyed.Without .store(in:)
@@ -117,6 +164,25 @@ extension MoviesVC {
                 }
             }
             .store(in: &cancellables)
+        
+        
+        searchTextField.textPublisher
+            .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
+            .removeDuplicates()
+            .sink { [weak self] text in
+                guard let self else { return }
+
+                if text.isEmpty {
+                    vm.loadInitialMovies()
+                    return
+                }
+                
+                vm.searchMovies(moviewName: text)
+                
+            }
+            .store(in: &cancellables)
+
+        
     }
 }
 
@@ -155,6 +221,28 @@ extension MoviesVC : UITableViewDataSource , UITableViewDelegate {
         navigationController?.pushViewController(detailVC, animated: true)
     }
 }
+
+
+
+
+extension MoviesVC: UITextFieldDelegate {
+    //Validation must still happen in shouldChangeCharactersIn (Apple recommended)
+    func textField(_ textField: UITextField,
+                   shouldChangeCharactersIn range: NSRange,
+                   replacementString string: String) -> Bool {
+
+        
+        let allowed = CharacterSet.alphanumerics.union(.whitespaces)
+        if string.rangeOfCharacter(from: allowed.inverted) != nil {
+            return false
+        }
+
+        return true
+    }
+}
+
+
+
 
 
 

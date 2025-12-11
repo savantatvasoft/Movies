@@ -86,19 +86,56 @@ class MoviesVM {
         
         Task {
             do {
-                let detail: MovieDetail = try await ApiService.shared.get(
+                let response: MovieDetail = try await ApiService.shared.get(
                     endPoint: "/movie/\(id)",
                     query: ["api_key": ApiService.shared.api_key]
                 )
                 
                 await MainActor.run {
-                    movieDetail = detail
+                   
+                    movieDetail = response
                     isDetailLoading = false
                 }
             } catch {
+               
                 await MainActor.run { isDetailLoading = false }
             }
         }
+    }
+    
+    // MARK: - Search Movie
+    func searchMovies(moviewName movie: String) {
+        Task {
+            await MainActor.run {
+               isInitialLoading = true
+            }
+        }
+        
+        Task {
+            do {
+                let response: MoviesResponse = try await ApiService.shared.get(
+                    endPoint: "/search/movie",
+                    query: [
+                        "api_key": ApiService.shared.api_key,
+                        "query":"\(movie)"
+                    ]
+                )
+                
+                await MainActor.run {
+                    print("response at \(response)")
+                    movies = response.results
+                                    
+                    currentPage = response.page
+                    totalPages = response.totalPages
+                    
+                   isInitialLoading = false
+                }
+            } catch {
+                print("error at \(error)")
+                await MainActor.run { isInitialLoading = false }
+            }
+        }
+        
     }
 }
 
