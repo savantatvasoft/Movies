@@ -13,10 +13,15 @@ class MoviesVC: UIViewController {
     let vm = MoviesVM()
     private let loader = LoadingView()
     private let header = Header(title: "Movies")
+    private let searchBar = SearchBarView()
     private var cancellables = Set<AnyCancellable>()
     
-    
-    private lazy var tableView:UITableView = {
+    private var headerTopConstraint: NSLayoutConstraint!
+    private var searchBarTopConstraint: NSLayoutConstraint!
+
+   
+    // MARK: - UI Components
+    private lazy var tableView: UITableView = {
         let table = UITableView(frame: .zero, style: .plain)
         table.showsVerticalScrollIndicator = false
         table.separatorStyle = .none
@@ -36,111 +41,94 @@ class MoviesVC: UIViewController {
         lbl.isHidden = true
         return lbl
     }()
-
     
-    // Reuse LoadingView for footer
     private lazy var footerLoader: LoadingView = {
         let view = LoadingView(frame: CGRect(x: 0, y: 0, width: self.view.frame.width, height: 60))
         return view
     }()
     
-    private let searchTextField: UITextField = {
-        let tf = UITextField()
-        tf.placeholder = "Search movies"
-        tf.textColor = .white
-        tf.backgroundColor = .clear
-        tf.layer.cornerRadius = 12
-        tf.layer.borderWidth = 1
-        tf.layer.borderColor = UIColor.systemGray4.cgColor
-        tf.setLeftIcon(UIImage(systemName: "magnifyingglass")!, padding: 12)
-        tf.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        return tf
-    }()
-
-
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        searchBar.delegate = self
+        
         bindViewModel()
         setUpView()
         setConstraints()
-       
+        setupDismissKeyboardGesture()
     }
 }
 
-
-
+// MARK: - Setup Views & Constraints
 extension MoviesVC {
     
-    private func setUpView(){
+    private func setUpView() {
         view.backgroundColor = UIColor(named: "Background")
         
         view.addSubview(header)
         view.addSubview(tableView)
         view.addSubview(loader)
-        view.addSubview(searchTextField)
         view.addSubview(emptyLabel)
+        
+    
+        view.addSubview(searchBar)
+        
         view.bringSubviewToFront(loader)
+        view.bringSubviewToFront(searchBar)
     }
     
     private func setConstraints() {
-        
         header.translatesAutoresizingMaskIntoConstraints = false
-        searchTextField.translatesAutoresizingMaskIntoConstraints = false
         tableView.translatesAutoresizingMaskIntoConstraints = false
         loader.translatesAutoresizingMaskIntoConstraints = false
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        headerTopConstraint = header.topAnchor.constraint(equalTo: view.topAnchor)
+        searchBarTopConstraint = searchBar.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 30)
+        searchBarTopConstraint.isActive = true
+        
         
         NSLayoutConstraint.activate([
+            headerTopConstraint,
             header.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            header.topAnchor.constraint(equalTo: view.topAnchor),
             
+            searchBar.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            searchBar.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             
-            searchTextField.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 30),
-            searchTextField.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 10),
-            searchTextField.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -10),
-             
-            tableView.topAnchor.constraint(equalTo: searchTextField.bottomAnchor , constant: 10),
-            tableView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor,constant: 10 ),
-            tableView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor,constant: -10),
+            // Table
+            tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 10),
+            tableView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 10),
+            tableView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -10),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            loader.topAnchor.constraint(equalTo: header.bottomAnchor , constant: 0),
+            // Loader
+            loader.topAnchor.constraint(equalTo: header.bottomAnchor),
             loader.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             loader.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             loader.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
+            // Empty label
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            
         ])
     }
+}
+
+// MARK: - Bind ViewModel
+extension MoviesVC {
     
     private func bindViewModel() {
-        
-        // Movies list change
         vm.$movies
             .receive(on: DispatchQueue.main)
             .sink { [weak self] movies in
                 guard let self else { return }
-                
                 self.tableView.reloadData()
-                
-                // Logic → hide label when loading, otherwise show only if empty
-                if self.vm.isInitialLoading {
-                    self.emptyLabel.isHidden = true
-                } else {
-                    self.emptyLabel.isHidden = !movies.isEmpty
-                }
+                self.emptyLabel.isHidden = self.vm.isInitialLoading || !movies.isEmpty
             }
             .store(in: &cancellables)
-
         
-        //.store(in:) is triggered immediately when you create the subscription.
-        //Keep this subscription alive until this VC is destroyed.Without .store(in:)
-//        Your subscription will die immediately..store runs only once (when creating subscription).
-        
-        // Initial Loader
         vm.$isInitialLoading
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isLoading in
@@ -150,7 +138,6 @@ extension MoviesVC {
             }
             .store(in: &cancellables)
         
-        // Pagination Loader
         vm.$isPaginationLoading
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isLoading in
@@ -164,32 +151,23 @@ extension MoviesVC {
                 }
             }
             .store(in: &cancellables)
-        
-        
-        searchTextField.textPublisher
-            .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
-            .removeDuplicates()
-            .sink { [weak self] text in
-                guard let self else { return }
-
-                if text.isEmpty {
-                    vm.loadInitialMovies()
-                    return
-                }
-                
-                vm.searchMovies(moviewName: text)
-                
-            }
-            .store(in: &cancellables)
-
-        
     }
+    
+    private func setupDismissKeyboardGesture() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTapOutside))
+        tap.cancelsTouchesInView = false  // IMPORTANT: allows tableView taps to still work
+        view.addGestureRecognizer(tap)
+    }
+    
+    @objc private func handleTapOutside() {
+        view.endEditing(true)  // hides keyboard
+    }
+
+
 }
 
-
-
-extension MoviesVC : UITableViewDataSource , UITableViewDelegate {
-    
+// MARK: - TableView DataSource & Delegate
+extension MoviesVC: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return vm.movies.count
     }
@@ -212,38 +190,67 @@ extension MoviesVC : UITableViewDataSource , UITableViewDelegate {
         }
     }
 
-    
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
         let movie = vm.movies[indexPath.row]
-        let detailVC = MovieInfoVC(movieId: movie.id,title: movie.title)
+        let detailVC = MovieInfoVC(movieId: movie.id, title: movie.title)
         navigationController?.pushViewController(detailVC, animated: true)
     }
 }
 
+extension MoviesVC: SearchBarViewDelegate {
 
+    func didStartSearching() {
+        headerTopConstraint.constant = -header.frame.height
+        searchBarTopConstraint.constant = 50
 
-
-extension MoviesVC: UITextFieldDelegate {
-    //Validation must still happen in shouldChangeCharactersIn (Apple recommended)
-    func textField(_ textField: UITextField,
-                   shouldChangeCharactersIn range: NSRange,
-                   replacementString string: String) -> Bool {
-
-        
-        let allowed = CharacterSet.alphanumerics.union(.whitespaces)
-        if string.rangeOfCharacter(from: allowed.inverted) != nil {
-            return false
+        UIView.animate(withDuration: 0.3) {
+            self.header.alpha = 0
+            self.tableView.isHidden = true
+            self.view.layoutIfNeeded()
         }
 
-        return true
+        // Add suggestion view to main view for scrolling
+        searchBar.suggestionView.removeFromSuperview()
+        view.addSubview(searchBar.suggestionView)
+        view.bringSubviewToFront(searchBar.suggestionView)
+        
+        searchBar.suggestionView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            searchBar.suggestionView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 4),
+            searchBar.suggestionView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 10),
+            searchBar.suggestionView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -10),
+            searchBar.suggestionView.heightAnchor.constraint(equalToConstant: 240)
+        ])
+
+        searchBar.suggestionView.showAll()
+    }
+    
+    func didCancelSearching() {
+        headerTopConstraint.constant = 0
+        searchBarTopConstraint.constant = 30
+
+        UIView.animate(withDuration: 0.3) {
+            self.header.alpha = 1
+            self.tableView.isHidden = false
+            self.view.layoutIfNeeded()
+        }
+
+        // Hide suggestion view
+        searchBar.suggestionView.isHidden = true
+        searchBar.suggestionView.removeFromSuperview()
+        vm.loadInitialMovies()
+    }
+
+    func didChangeText(_ text: String) {
+        if text.isEmpty {
+            vm.loadInitialMovies()
+        } else {
+            vm.searchMovies(moviewName: text)
+        }
     }
 }
-
-
-
-
 
 
 #if DEBUG
