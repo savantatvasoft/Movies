@@ -284,7 +284,7 @@ class MovieInfoContentView: UIView {
                     }
                 }
             } catch {
-                print("Failed to load image: \(error)")
+//                print("Failed to load image: \(error)")
             }
         }
     }

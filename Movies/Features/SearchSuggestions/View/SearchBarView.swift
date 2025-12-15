@@ -3,14 +3,15 @@ import Combine
 
 protocol SearchBarViewDelegate: AnyObject {
     func didStartSearching()
-    func didCancelSearching()
+    func didCancelSearching(_ text: String?)
     func didChangeText(_ text: String)
 }
 
 final class SearchBarView: UIView {
 
     weak var delegate: SearchBarViewDelegate?
-    let suggestionView = SearchSuggestionView()
+    let svm = SearchSuggestionViewModel()
+    lazy var suggestionView = SearchSuggestionView(viewModel: svm)
 
     private var isSearchActive = false
     private var cancellables = Set<AnyCancellable>()
@@ -121,12 +122,16 @@ final class SearchBarView: UIView {
             self.cancelButton.alpha = 0
             self.layoutIfNeeded()
         }
+        let text = textField.text
+        textField.text = ""
+        if let text, !text.isEmpty {
+            svm.saveSearch(text: text)
+        }
 
-        delegate?.didCancelSearching()
+        delegate?.didCancelSearching(nil)
     }
 
     @objc private func cancelTapped() {
-        textField.text = ""
         collapse()
         textField.resignFirstResponder()
         delegate?.didChangeText("")
@@ -137,7 +142,10 @@ final class SearchBarView: UIView {
 // MARK: - UITextFieldDelegate
 extension SearchBarView: UITextFieldDelegate {
     func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+        svm.showAll()
+        suggestionView.showAll()   // ← notify view
         suggestionView.isHidden = false
+
         expand()
         return true
     }

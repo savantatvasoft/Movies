@@ -23,7 +23,7 @@ extension UITextField {
             object: self
         )
         .handleEvents(receiveOutput: { notification in
-              print("🟦 Notification received: \(notification)")
+//              print("🟦 Notification received: \(notification)")
           })
         .compactMap { ($0.object as? UITextField)?.text }
         .map { text -> String in
@@ -33,7 +33,7 @@ extension UITextField {
         .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
         .removeDuplicates()
         .handleEvents(receiveOutput: { text in
-            print("🔍 Search Text: \(text)")
+//            print("🔍 Search Text: \(text)")
         })
         .eraseToAnyPublisher()
     }

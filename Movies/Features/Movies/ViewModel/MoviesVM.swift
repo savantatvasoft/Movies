@@ -122,7 +122,7 @@ class MoviesVM {
                 )
                 
                 await MainActor.run {
-                    print("response at \(response)")
+//                    print("response at \(response)")
                     movies = response.results
                                     
                     currentPage = response.page
@@ -131,7 +131,7 @@ class MoviesVM {
                    isInitialLoading = false
                 }
             } catch {
-                print("error at \(error)")
+//                print("error at \(error)")
                 await MainActor.run { isInitialLoading = false }
             }
         }

@@ -168,6 +168,7 @@ extension MoviesVC {
 
 // MARK: - TableView DataSource & Delegate
 extension MoviesVC: UITableViewDataSource, UITableViewDelegate {
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return vm.movies.count
     }
@@ -211,10 +212,10 @@ extension MoviesVC: SearchBarViewDelegate {
             self.view.layoutIfNeeded()
         }
 
-        // Add suggestion view to main view for scrolling
-        searchBar.suggestionView.removeFromSuperview()
+//        // Add suggestion view to main view for scrolling
+//        searchBar.suggestionView.removeFromSuperview()
         view.addSubview(searchBar.suggestionView)
-        view.bringSubviewToFront(searchBar.suggestionView)
+//        view.bringSubviewToFront(searchBar.suggestionView)
         
         searchBar.suggestionView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -224,10 +225,10 @@ extension MoviesVC: SearchBarViewDelegate {
             searchBar.suggestionView.heightAnchor.constraint(equalToConstant: 240)
         ])
 
-        searchBar.suggestionView.showAll()
+//        searchBar.suggestionView.showAll()
     }
     
-    func didCancelSearching() {
+    func didCancelSearching(_ text: String?) {
         headerTopConstraint.constant = 0
         searchBarTopConstraint.constant = 30
 
@@ -245,8 +246,10 @@ extension MoviesVC: SearchBarViewDelegate {
 
     func didChangeText(_ text: String) {
         if text.isEmpty {
+            searchBar.suggestionView.isHidden = false
             vm.loadInitialMovies()
         } else {
+            searchBar.suggestionView.isHidden = true
             vm.searchMovies(moviewName: text)
         }
     }

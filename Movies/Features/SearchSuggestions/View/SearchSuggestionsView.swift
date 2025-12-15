@@ -8,8 +8,8 @@ protocol SearchSuggestionViewDelegate: AnyObject {
 final class SearchSuggestionView: UIView {
 
     weak var delegate: SearchSuggestionViewDelegate?
-
-    private let viewModel = SearchSuggestionViewModel()
+    
+    let viewModel: SearchSuggestionViewModel
     private var cancellables = Set<AnyCancellable>()
 
     private let tableView: UITableView = {
@@ -26,8 +26,18 @@ final class SearchSuggestionView: UIView {
         return tv
     }()
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+//    override init(frame: CGRect) {
+//        super.init(frame: frame)
+//        setupUI()
+//        bindViewModel()
+//    }
+//
+//    required init?(coder: NSCoder) { fatalError() }
+    
+    // why override not work here ??
+    init(viewModel: SearchSuggestionViewModel) {
+        self.viewModel = viewModel
+        super.init(frame: .zero)
         setupUI()
         bindViewModel()
     }
