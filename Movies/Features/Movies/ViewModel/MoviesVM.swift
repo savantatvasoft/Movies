@@ -53,6 +53,7 @@ class MoviesVM {
             )
             
             await MainActor.run {
+//                movies = [response.results.first ?? Movies(id: 1, title: "Demo", originalTitle: "Original title", overview: "Overview of movie", releaseDate: "22-07-2025", posterPath: nil, backdropPath: nil, adult: false, genreIDs: [1,2,4], popularity: 1.0, voteAverage: 10, voteCount: 1, video: false)]
                 if isInitialLoad {
                     movies = response.results
                 } else {

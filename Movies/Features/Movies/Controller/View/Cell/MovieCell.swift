@@ -12,6 +12,8 @@ class MovieCell: UITableViewCell {
         return view
     }()
     
+//    private var imgView: UIImageView?
+    
     private let posterImageView: UIImageView = {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
@@ -79,7 +81,16 @@ class MovieCell: UITableViewCell {
         mainStack.addArrangedSubview(infoStack)
 
         setupConstraints()
+//        setUpImgView()
     }
+    
+//    func setUpImgView() {
+//        imgView = UIImageView()
+//        imgView?.contentMode = .scaleAspectFill
+//        imgView?.clipsToBounds = true
+//        imgView?.layer.cornerRadius = 0
+//        imgView?.widthAnchor.constraint(equalToConstant: 90).isActive = true
+//    }
     
     override func layoutSubviews() {
         super.layoutSubviews()
