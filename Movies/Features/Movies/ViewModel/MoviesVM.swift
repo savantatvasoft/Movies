@@ -6,11 +6,12 @@ class MoviesVM {
     
     // MARK: - Published States
     @Published private(set) var movies: [Movies] = []
-    @Published private(set) var isInitialLoading: Bool = false
+    @Published private(set) var isInitialLoading: Bool = true
     @Published private(set) var isPaginationLoading: Bool = false
     @Published private(set) var movieDetail: MovieDetail?
     @Published private(set) var isDetailLoading: Bool = false
-    
+    @Published private(set) var networkError: String?
+
     // MARK: - Pagination
     private var currentPage = 0
     private var totalPages = 1
@@ -23,9 +24,28 @@ class MoviesVM {
     init() {
         loadInitialMovies()
     }
-    
+
+    private func checkInternetOrFail(isInitialLoad: Bool) async -> Bool {
+        guard NetworkReachability.shared.isConnected else {
+            await MainActor.run {
+                if isInitialLoad {
+                    isInitialLoading = false
+                } else {
+                    isPaginationLoading = false
+                }
+                isDetailLoading = false
+                networkError = "No internet connection. Please check your network."
+            }
+            return false
+        }
+        return true
+    }
+
+
     func loadInitialMovies() {
-        Task { await fetchMovies(page: 1, isInitialLoad: true) }
+        Task {
+            await fetchMovies(page: 1, isInitialLoad: true)
+        }
     }
     
     // MARK: - Load Next Page
@@ -39,10 +59,13 @@ class MoviesVM {
     private func fetchMovies(page: Int, isInitialLoad: Bool) async {
         
         await MainActor.run {
+            networkError = nil
             if isInitialLoad { isInitialLoading = true }
             else { isPaginationLoading = true }
         }
-        
+
+//        guard await checkInternetOrFail(isInitialLoad: isInitialLoad) else { return }
+
         do {
             let response: MoviesResponse = try await ApiService.shared.get(
                 endPoint: "/discover/movie",
@@ -53,7 +76,6 @@ class MoviesVM {
             )
             
             await MainActor.run {
-//                movies = [response.results.first ?? Movies(id: 1, title: "Demo", originalTitle: "Original title", overview: "Overview of movie", releaseDate: "22-07-2025", posterPath: nil, backdropPath: nil, adult: false, genreIDs: [1,2,4], popularity: 1.0, voteAverage: 10, voteCount: 1, video: false)]
                 if isInitialLoad {
                     movies = response.results
                 } else {
@@ -77,41 +99,46 @@ class MoviesVM {
     
     
     // MARK: - Movie Detail
-    func loadMovieDetail(id: Int) {
+    func loadMovieDetail(id: Int) async {
         Task {
             await MainActor.run {
+                networkError = nil
                 isDetailLoading = true
                 movieDetail = nil
             }
         }
-        
+
+        guard await checkInternetOrFail(isInitialLoad: isDetailLoading) else { return }
+
         Task {
             do {
                 let response: MovieDetail = try await ApiService.shared.get(
                     endPoint: "/movie/\(id)",
                     query: ["api_key": ApiService.shared.api_key]
                 )
-                
+                print("response :\(response)")
                 await MainActor.run {
-                   
                     movieDetail = response
                     isDetailLoading = false
                 }
             } catch {
-               
+                print("error :\(error)")
                 await MainActor.run { isDetailLoading = false }
             }
         }
     }
     
     // MARK: - Search Movie
-    func searchMovies(moviewName movie: String) {
+    func searchMovies(moviewName movie: String) async {
         Task {
             await MainActor.run {
-               isInitialLoading = true
+                networkError = nil
+                isInitialLoading = true
             }
         }
-        
+
+        guard await checkInternetOrFail(isInitialLoad: true) else { return }
+
         Task {
             do {
                 let response: MoviesResponse = try await ApiService.shared.get(
@@ -123,183 +150,16 @@ class MoviesVM {
                 )
                 
                 await MainActor.run {
-//                    print("response at \(response)")
                     movies = response.results
-                                    
                     currentPage = response.page
                     totalPages = response.totalPages
                     
                    isInitialLoading = false
                 }
             } catch {
-//                print("error at \(error)")
                 await MainActor.run { isInitialLoading = false }
             }
         }
         
     }
 }
-
-
-// Below we Manual trigger
-    //onInitialLoadingChanged
-    //onPaginationLoadingChanged
-    //onDetailLoadingChanged
-    //onMovieLoaded
-
-//class MoviesVM {
-//    
-//    private(set) var movies: [Movies] = []
-//    private(set) var movieDetail: MovieDetail?
-//    private var currentPage = 0
-//    private var totalPages = 1
-//    private var canLoadMore: Bool {
-//        return currentPage < totalPages
-//    }
-//    
-//    private(set) var isInitialLoading = true {
-//        didSet {
-//            // Trigger callBAck autoomatic for start loader
-//            // Becasue if you this trigger callBack in init it does not work
-//            // beacause in  viewcontroll in viewDidLoad trigger after init of VM so this will set that nil
-//            onInitialLoadingChanged?(isInitialLoading)
-//        }
-//    }
-//    
-//    private(set) var isPaginationLoading = false {
-//        didSet {
-//            onPaginationLoadingChanged?(isPaginationLoading)
-//        }
-//    }
-//    
-//    var onInitialLoadingChanged: ((Bool) -> Void)? {
-//        didSet {
-//            onInitialLoadingChanged?(isInitialLoading)
-//        }
-//    }
-//    
-//    var onPaginationLoadingChanged: ((Bool) -> Void)? {
-//        didSet {
-//            onPaginationLoadingChanged?(isPaginationLoading)
-//        }
-//    }
-//    
-//    var onDetailLoadingChanged: ((Bool) -> Void)? {
-//        didSet {
-//            onDetailLoadingChanged?(isDetailLoading)
-//        }
-//    }
-//    
-//    private(set) var isDetailLoading = false {
-//        didSet {
-//            onDetailLoadingChanged?(isDetailLoading)
-//        }
-//    }
-//    
-//    var onMovieLoaded: ((MovieDetail) -> Void)?
-//    
-//    init() {
-//        Task {
-//            await loadInitialMovies()
-//        }
-//    }
-//    
-//    // Load first page
-//    private func loadInitialMovies() async {
-//        await fetchMovies(page: 1, isInitialLoad: true)
-//    }
-//    
-//    // Load next page
-//    func loadMore() {
-//        guard canLoadMore && !isPaginationLoading else {
-//            return
-//        }
-//        
-//        Task {
-//            await fetchMovies(page: currentPage + 1, isInitialLoad: false)
-//        }
-//    }
-//    
-//    
-//    private func fetchMovies(page: Int, isInitialLoad: Bool) async {
-//    
-//        await MainActor.run {
-//            if isInitialLoad {
-//                self.isInitialLoading = true
-//            } else {
-//                self.isPaginationLoading = true
-//            }
-//        }
-//        
-//        do {
-//            let response: MoviesResponse = try await ApiService.shared.get(
-//                endPoint: "/discover/movie",
-//                query: [
-//                    "api_key": ApiService.shared.api_key,
-//                    "page": String(page)
-//                ]
-//            )
-//            
-//            //You cannot await inside a DispatchQueue.main.async { ... } block.
-////            try await Task.sleep(nanoseconds: 5_000_000_000)
-//            
-//            await MainActor.run {
-//                if isInitialLoad {
-//                    self.movies = response.results
-//                } else {
-//                    self.movies.append(contentsOf: response.results)
-//                }
-//                
-//                self.currentPage = response.page
-//                self.totalPages = response.totalPages
-//                
-//                if isInitialLoad {
-//                    self.isInitialLoading = false
-//                } else {
-//                    self.isPaginationLoading = false
-//                }
-//            }
-//            
-//        } catch {
-//            print("Error loading movies: \(error.localizedDescription)")
-//            
-//            await MainActor.run {
-//                if isInitialLoad {
-//                    self.isInitialLoading = false
-//                } else {
-//                    self.isPaginationLoading = false
-//                }
-//            }
-//        }
-//    }
-//    
-//    
-//    func loadMovieDetail(movieId: Int) async {
-//        await MainActor.run {
-//            self.isDetailLoading = true
-//            self.movieDetail = nil // Clear previous detail
-//        }
-//        
-//        do {
-//            
-//            let detail: MovieDetail = try await ApiService.shared.get(
-//                endPoint: "/movie/\(movieId)",
-//                query: [
-//                    "api_key": ApiService.shared.api_key
-//                ]
-//            )
-//            print("movie details \(detail)")
-//            await MainActor.run {
-//                self.movieDetail = detail
-//                self.isDetailLoading = false
-//                self.onMovieLoaded?(detail)
-//            }
-//        } catch {
-//            print("movie details error: \(error)")
-//            await MainActor.run {
-//                self.isDetailLoading = false
-//
-//            }
-//        }
-//    }
-//}

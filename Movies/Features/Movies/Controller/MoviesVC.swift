@@ -250,7 +250,9 @@ extension MoviesVC: SearchBarViewDelegate {
             vm.loadInitialMovies()
         } else {
             searchBar.suggestionView.isHidden = true
-            vm.searchMovies(moviewName: text)
+            Task {
+                await vm.searchMovies(moviewName: text)
+            }
         }
     }
 }

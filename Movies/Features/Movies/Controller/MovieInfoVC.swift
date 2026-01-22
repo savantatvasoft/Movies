@@ -108,13 +108,24 @@ extension MovieInfoVC {
         
         // Movie detail binding
         vm.$movieDetail
-            .compactMap { $0 }   // Only proceed when data arrives
+            .compactMap { $0 }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] movie in
                 self?.contentView.configure(with: movie)
             }
             .store(in: &cancellables)
-        
+
+        vm.$networkError
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                guard let self, let error else { return }
+
+                // Show alert to user
+                let alert = UIAlertController(title: "Network Error", message: error, preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(alert, animated: true)
+            }
+            .store(in: &cancellables)
         
         // Back button
         header.backButtonAction = { [weak self] in
@@ -125,6 +136,7 @@ extension MovieInfoVC {
                 self.dismiss(animated: true)
             }
         }
+        
     }
 }
 
