@@ -54,6 +54,30 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // to restore the scene back to its current state.
     }
 
+    func scene(
+        _ scene: UIScene,
+        continue userActivity: NSUserActivity
+    ) {
+        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = userActivity.webpageURL else {
+            return
+        }
+
+        print("Universal Link opened:", url.absoluteString)
+
+        handleUniversalLink(url)
+    }
+
+    func handleUniversalLink(_ url: URL) {
+        let path = url.path
+
+        if path.hasPrefix("/movie/") {
+            // open movie screen
+        } else if path.hasPrefix("/open/") {
+            // open home
+        }
+    }
+
 
 }
 

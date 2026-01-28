@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "com.savansoni.MoviesApp",
+        "paths": [
+          "/open/*"
+        ]
+      }
+    ]
+  }
+}

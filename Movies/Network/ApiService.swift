@@ -19,7 +19,6 @@ final class ApiService {
         guard connected else { throw NetworkError.noInternet }
         print("NetworkReachability")
 
-
         let urlString = baseURL + endPoint
         let afHeaders = HTTPHeaders(headers)
         
